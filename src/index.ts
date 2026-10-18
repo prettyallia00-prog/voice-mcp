@@ -17,28 +17,11 @@ import { z } from "zod";
 // =============================================================================
 
 export interface Env {
-  // MiniMax API credentials
-  MINIMAX_API_KEY: string;
+ ELEVENLABS_API_KEY: string;
   VOICE_ID: string;
-  // Optional: custom bot name for display
   BOT_NAME?: string;
 }
 
-interface T2AResponse {
-  data?: {
-    audio?: string;
-    status?: number;
-  };
-  extra_info?: {
-    audio_length?: number;
-    audio_sample_rate?: number;
-    audio_size?: number;
-  };
-  base_resp?: {
-    status_code: number;
-    status_msg: string;
-  };
-}
 
 // =============================================================================
 // Constants
@@ -348,57 +331,67 @@ function getPlayerHTML(botName: string): string {
 // MiniMax API Helper
 // =============================================================================
 
-async function generateAudio(env: Env, text: string): Promise<{ success: boolean; audio_base64?: string; error?: string }> {
+async function generateAudio(
+  env: Env,
+  text: string
+): Promise<{
+  success: boolean;
+  audio_base64?: string;
+  error?: string;
+}> {
   try {
-    const t2aUrl = "https://api.minimaxi.com/v1/t2a_v2";
-    
-    const response = await fetch(t2aUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.MINIMAX_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'speech-2.8-hd',
-        text: text,
-        stream: false,
-        voice_setting: {
-          voice_id: env.VOICE_ID,
-          speed: 1.0,
-          vol: 1.0,
-          pitch: 0,
-        },
-        audio_setting: {
-          sample_rate: 32000,
-          format: 'mp3',
-        },
-      }),
-    });
-
-    const data = await response.json() as T2AResponse;
-    
-    if (data.base_resp && data.base_resp.status_code !== 0) {
-      return { success: false, error: data.base_resp.status_msg };
+    if (!env.ELEVENLABS_API_KEY || !env.VOICE_ID) {
+      return {
+        success: false,
+        error: "ElevenLabs API Key or Voice ID is missing",
+      };
     }
 
-    if (data.data?.audio) {
-      const hexString = data.data.audio;
-      const bytes = new Uint8Array(hexString.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.slice(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(env.VOICE_ID)}`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": env.ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+          "Accept": "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text,
+          model_id: "eleven_multilingual_v2",
+          output_format: "mp3_44100_128",
+        }),
       }
-      const base64Audio = btoa(binary);
-      
-      return { success: true, audio_base64: base64Audio };
+    );
+
+    if (!response.ok) {
+      const details = await response.text();
+      return {
+        success: false,
+        error: `ElevenLabs HTTP ${response.status}: ${details.slice(0, 1000)}`,
+      };
     }
 
-    return { success: false, error: 'Failed to generate audio' };
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    let binary = "";
+    const chunkSize = 8192;
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(
+        ...bytes.subarray(i, i + chunkSize)
+      );
+    }
+
+    return {
+      success: true,
+      audio_base64: btoa(binary),
+    };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
