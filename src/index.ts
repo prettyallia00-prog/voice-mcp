@@ -511,37 +511,6 @@ export default {
       }, { headers: corsHeaders });
     }
 
-      const text = url.searchParams.get('text');
-      if (!text) {
-        return Response.json({ error: 'Missing text parameter' }, { 
-          status: 400, 
-          headers: corsHeaders 
-        });
-      }
-
-      const result = await generateAudio(env, text);
-      
-      if (result.success && result.audio_base64) {
-        const binaryString = atob(result.audio_base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        return new Response(bytes, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'audio/mpeg',
-            'Content-Disposition': 'inline; filename="voice.mp3"',
-          },
-        });
-      }
-
-      return Response.json({ error: result.error }, { 
-        status: 500, 
-        headers: corsHeaders 
-      });
-    }
 
     // Landing page
     if (path === '/' || path === '') {
@@ -569,15 +538,6 @@ export default {
 <code>${url.origin}/mcp</code>
 </div>
 
-<div class="section">
-<h3>Direct API</h3>
-<div class="endpoint">
-  <code>GET /speak?text=Hello</code> — Get audio file directly
-</div>
-<div class="endpoint">
-  <code>GET /status</code> — Health check
-</div>
-</div>
 
 <div class="section">
 <h3>Configuration</h3>
