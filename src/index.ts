@@ -366,6 +366,7 @@ async function generateAudio(
 
     if (!response.ok) {
       const details = await response.text();
+      console.error("ElevenLabs API failed:", response.status, details.slice(0, 1000));
       return {
         success: false,
         error: `ElevenLabs HTTP ${response.status}: ${details.slice(0, 1000)}`,
