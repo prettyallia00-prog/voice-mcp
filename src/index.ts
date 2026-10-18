@@ -511,8 +511,6 @@ export default {
       }, { headers: corsHeaders });
     }
 
-    // Direct audio API
-    if (path === '/speak' && request.method === 'GET') {
       const text = url.searchParams.get('text');
       if (!text) {
         return Response.json({ error: 'Missing text parameter' }, { 
